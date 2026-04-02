@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Dev files
+.env.local
+.env.*.local
+
+# Build output
+mix_def/
+.next/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Public uploads (can be large)
+public/uploads/

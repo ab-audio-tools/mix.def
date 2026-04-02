@@ -1,0 +1,40 @@
+{
+  "name": "mix.def",
+  "version": "1.0.0",
+  "description": "Modern audio sharing and portfolio platform for music producers and sound designers",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/auth-helpers-nextjs": "^0.10.0",
+    "@supabase/auth-helpers-react": "^0.4.0",
+    "@supabase/supabase-js": "^2.43.0",
+    "axios": "^1.6.0",
+    "date-fns": "^2.30.0",
+    "music-metadata-browser": "^2.5.11",
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-hot-toast": "^2.4.0",
+    "react-icons": "^4.12.0",
+    "tailwindcss": "^3.4.0",
+    "wavesurfer.js": "^7.0.0",
+    "zustand": "^4.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "autoprefixer": "^10.4.0",
+    "eslint": "^8.50.0",
+    "eslint-config-next": "^15.0.0",
+    "eslint-visitor-keys": "^4.2.1",
+    "postcss": "^8.4.0",
+    "typescript": "^5.3.0"
+  }
+}

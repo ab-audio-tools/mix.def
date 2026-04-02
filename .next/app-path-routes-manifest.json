@@ -1,0 +1,23 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/api/auth/signup/route": "/api/auth/signup",
+  "/api/comments/route": "/api/comments",
+  "/api/containers/[id]/files/[fileId]/route": "/api/containers/[id]/files/[fileId]",
+  "/api/containers/[id]/files/route": "/api/containers/[id]/files",
+  "/api/containers/[id]/route": "/api/containers/[id]",
+  "/api/containers/route": "/api/containers",
+  "/api/shares/[id]/route": "/api/shares/[id]",
+  "/api/shares/public/[token]/route": "/api/shares/public/[token]",
+  "/api/shares/route": "/api/shares",
+  "/api/tracks/route": "/api/tracks",
+  "/dashboard/container/[id]/page": "/dashboard/container/[id]",
+  "/dashboard/page": "/dashboard",
+  "/page": "/",
+  "/explore/page": "/explore",
+  "/profile/[id]/page": "/profile/[id]",
+  "/share/[token]/page": "/share/[token]",
+  "/track/[id]/page": "/track/[id]",
+  "/upload/page": "/upload",
+  "/(auth)/signin/page": "/signin",
+  "/(auth)/signup/page": "/signup"
+}

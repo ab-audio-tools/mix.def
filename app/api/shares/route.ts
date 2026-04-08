@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPublicShare, getUserShares, disableShare } from '@/lib/database';
-import { supabase } from '@/lib/supabase';
+import { getUserFromToken } from '@/lib/serverAuth';
 
 export async function POST(request: NextRequest) {
   try {
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const user = await getUserFromToken(request);
 
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         share,
-        shareLink: `/share/${shareToken}`,
+        shareLink: new URL(`/share/${shareToken}`, request.url).toString(),
       },
       { status: 201 }
     );
@@ -54,9 +54,9 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const user = await getUserFromToken(request);
 
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }

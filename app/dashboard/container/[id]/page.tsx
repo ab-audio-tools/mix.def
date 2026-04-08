@@ -3,11 +3,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
-import { IoArrowBack, IoCloudUpload, IoTrash, IoShare, IoPlaySharp, IoMusicalNote, IoSearch, IoChevronDown, IoEllipsisVertical } from 'react-icons/io5';
+import { ArrowLeft, Cloud, Trash2, Share2, Play, Edit2, Plus } from 'lucide-react';
 import { extractFullAudioMetadata } from '@/lib/audioMetadata';
 import { authenticatedFetch } from '@/lib/clientAuth';
 import toast from 'react-hot-toast';
+import ContainerModal from '@/components/ContainerModal';
 import FloatingPlayer from '@/components/FloatingPlayer';
+import { motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 interface File {
   id: string;
@@ -18,6 +21,8 @@ interface File {
   sample_rate?: number;
   bitrate?: number;
   lufs?: number;
+  true_peak?: number;
+  loudness_range?: number;
   format?: string;
   created_at: string;
 }
@@ -39,6 +44,7 @@ export default function ContainerPage({ params }: { params: Promise<{ id: string
   const [dragActive, setDragActive] = useState(false);
   const [dragCounter, setDragCounter] = useState(0);
   const [playingFile, setPlayingFile] = useState<File | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -55,7 +61,6 @@ export default function ContainerPage({ params }: { params: Promise<{ id: string
   async function fetchContainerAndFiles(containerId: string) {
     try {
       setLoading(true);
-      console.log('[ContainerPage] 📝 Fetching container and files...');
       const [containerRes, filesRes] = await Promise.all([
         authenticatedFetch(`/api/containers/${containerId}`),
         authenticatedFetch(`/api/containers/${containerId}/files`),
@@ -63,18 +68,16 @@ export default function ContainerPage({ params }: { params: Promise<{ id: string
 
       if (containerRes.ok) {
         const containerData = await containerRes.json();
-        console.log('[ContainerPage] ✅ Container loaded:', containerData.container?.name);
         setContainer(containerData.container);
       }
 
       if (filesRes.ok) {
         const data = await filesRes.json();
-        console.log('[ContainerPage] ✅ Files loaded:', data.files?.length, 'files');
         setFiles(data.files);
       }
     } catch (error) {
-      console.error('[ContainerPage] ❌ Error fetching container:', error);
-      toast.error('Errore nel caricamento del container');
+      console.error('Error fetching container:', error);
+      toast.error('Error loading container');
     } finally {
       setLoading(false);
     }
@@ -89,17 +92,12 @@ export default function ContainerPage({ params }: { params: Promise<{ id: string
     if (e.type === 'drop') {
       const dragEvent = e as React.DragEvent<HTMLDivElement>;
       filesToUpload = dragEvent.dataTransfer?.files || null;
-      console.log('[ContainerPage] 📥 Drop detected, files:', filesToUpload?.length);
     } else if (e.type === 'change') {
       const inputEvent = e as React.ChangeEvent<HTMLInputElement>;
       filesToUpload = inputEvent.currentTarget?.files || null;
-      console.log('[ContainerPage] 📁 Input change detected, files:', filesToUpload?.length);
     }
 
-    if (!filesToUpload || filesToUpload.length === 0) {
-      console.log('[ContainerPage] ⚠️ No files to upload');
-      return;
-    }
+    if (!filesToUpload || filesToUpload.length === 0) return;
 
     const resolvedParams = await params;
     await uploadFiles(filesToUpload, resolvedParams.id);
@@ -108,20 +106,18 @@ export default function ContainerPage({ params }: { params: Promise<{ id: string
   async function uploadFiles(filesToUpload: FileList, containerId: string) {
     try {
       setUploading(true);
-      console.log('[ContainerPage] 📝 Uploading', filesToUpload.length, 'files...');
 
       for (let i = 0; i < filesToUpload.length; i++) {
         const file = filesToUpload[i];
 
-        // Check if audio file
         if (!file.type.startsWith('audio/')) {
-          toast.error(`${file.name} non è un file audio`);
+          toast.error(`${file.name} is not an audio file`);
           continue;
         }
 
-        // Extract audio metadata
-        toast.loading(`Analizzando ${file.name}...`);
+        const toastId = toast.loading(`Processing ${file.name}...`);
         const audioMetadata = await extractFullAudioMetadata(file);
+        toast.dismiss(toastId);
 
         const formData = new FormData();
         formData.append('file', file);
@@ -129,58 +125,54 @@ export default function ContainerPage({ params }: { params: Promise<{ id: string
         formData.append('sample_rate', audioMetadata.sample_rate?.toString() || '');
         formData.append('bitrate', audioMetadata.bitrate?.toString() || '');
         formData.append('lufs', audioMetadata.lufs?.toString() || '');
+        formData.append('true_peak', audioMetadata.true_peak?.toString() || '');
+        formData.append('loudness_range', audioMetadata.loudness_range?.toString() || '');
+        formData.append('format', audioMetadata.format?.toString() || '');
 
-        console.log('[ContainerPage] 📤 Uploading:', file.name);
         const response = await authenticatedFetch(`/api/containers/${containerId}/files`, {
           method: 'POST',
           body: formData,
         });
 
         if (response.ok) {
-          console.log('[ContainerPage] ✅ File uploaded:', file.name);
-          toast.success(`${file.name} caricato con successo`);
+          toast.success(`${file.name} uploaded successfully`);
           await fetchContainerAndFiles(containerId);
         } else {
           const errorData = await response.json();
-          console.error('[ContainerPage] ❌ Upload failed:', file.name, '- Error:', errorData.error);
-          toast.error(`Errore nel caricamento di ${file.name}: ${errorData.error}`);
+          toast.error(`Error uploading ${file.name}: ${errorData.error}`);
         }
       }
     } catch (error) {
-      console.error('[ContainerPage] ❌ Error uploading files:', error);
-      toast.error('Errore nel caricamento dei file');
+      console.error('Error uploading files:', error);
+      toast.error('Error uploading files');
     } finally {
       setUploading(false);
     }
   }
 
   async function handleDeleteFile(fileId: string, fileName: string) {
-    if (!confirm(`Sei sicuro di voler eliminare ${fileName}?`)) return;
+    if (!confirm(`Delete ${fileName}?`)) return;
 
     const resolvedParams = await params;
     try {
-      console.log('[ContainerPage] 🗑️ Deleting file:', fileName);
       const response = await authenticatedFetch(`/api/containers/${resolvedParams.id}/files/${fileId}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
-        console.log('[ContainerPage] ✅ File deleted:', fileName);
-        toast.success('File eliminato');
+        toast.success('File deleted');
         await fetchContainerAndFiles(resolvedParams.id);
       } else {
-        console.error('[ContainerPage] ❌ Delete failed:', fileName);
-        toast.error('Errore nell\'eliminazione del file');
+        toast.error('Error deleting file');
       }
     } catch (error) {
-      console.error('[ContainerPage] ❌ Error deleting file:', error);
-      toast.error('Errore nell\'eliminazione del file');
+      console.error('Error deleting file:', error);
+      toast.error('Error deleting file');
     }
   }
 
   async function handleShare(fileId: string) {
     try {
-      console.log('[ContainerPage] 🔗 Creating share link for:', fileId);
       const response = await authenticatedFetch('/api/shares', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -189,17 +181,60 @@ export default function ContainerPage({ params }: { params: Promise<{ id: string
 
       if (response.ok) {
         const data = await response.json();
-        const shareUrl = `${window.location.origin}${data.shareLink}`;
-        navigator.clipboard.writeText(shareUrl);
-        console.log('[ContainerPage] ✅ Share link created');
-        toast.success('Link di condivisione copiato!');
+        await navigator.clipboard.writeText(data.shareLink);
+        toast.success('Share link copied!');
       } else {
-        console.error('[ContainerPage] ❌ Share creation failed');
-        toast.error('Errore nella creazione del link');
+        toast.error('Error creating share link');
       }
     } catch (error) {
-      console.error('[ContainerPage] ❌ Error creating share link:', error);
-      toast.error('Errore nella creazione del link');
+      console.error('Error creating share link:', error);
+      toast.error('Error creating share link');
+    }
+  }
+
+  async function handleShareContainer() {
+    if (!container) return;
+
+    try {
+      const response = await authenticatedFetch('/api/shares', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ containerId: container.id }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        await navigator.clipboard.writeText(data.shareLink);
+        toast.success('Container share link copied!');
+      } else {
+        const errorData = await response.json().catch(() => null);
+        toast.error(errorData?.error || 'Error creating share link');
+      }
+    } catch (error) {
+      console.error('Error creating container share link:', error);
+      toast.error('Error creating share link');
+    }
+  }
+
+  async function handleUpdateContainer(data: { name: string; description: string }) {
+    if (!container) return;
+
+    try {
+      const response = await authenticatedFetch(`/api/containers/${container.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        const updatedData = await response.json();
+        setContainer(updatedData.container);
+        toast.success('Container updated successfully');
+      } else {
+        toast.error('Error updating container');
+      }
+    } catch (error) {
+      console.error('Error updating container:', error);
+      toast.error('Error updating container');
     }
   }
 
@@ -212,208 +247,292 @@ export default function ContainerPage({ params }: { params: Promise<{ id: string
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-dark-950 flex items-center justify-center">
-        <p className="text-dark-400">Caricamento...</p>
+      <div className="min-h-screen bg-[#030303] flex items-center justify-center">
+        <p className="text-white/60">Loading...</p>
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-dark-950 flex items-center justify-center">
-        <p className="text-dark-400">Caricamento container...</p>
+      <div className="min-h-screen bg-[#030303] flex items-center justify-center">
+        <p className="text-white/60">Loading container...</p>
       </div>
     );
   }
 
   if (!container) {
     return (
-      <div className="min-h-screen bg-dark-950 flex items-center justify-center">
-        <p className="text-dark-400">Container non trovato</p>
+      <div className="min-h-screen bg-[#030303] flex items-center justify-center">
+        <p className="text-white/60">Container not found</p>
       </div>
     );
   }
 
   return (
-    <div
-      className="min-h-screen bg-dark-950 pb-40"
-      onDragEnter={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setDragCounter((prev) => prev + 1);
-        setDragActive(true);
-      }}
-      onDragLeave={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setDragCounter((prev) => {
-          const next = prev - 1;
-          if (next <= 0) setDragActive(false);
-          return Math.max(0, next);
-        });
-      }}
-      onDragOver={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setDragActive(false);
-        setDragCounter(0);
-        handleFileUpload(e);
-      }}
-    >
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        accept="audio/*"
-        onChange={handleFileUpload}
-        disabled={uploading}
-        className="hidden"
-      />
+    <div className="min-h-screen bg-[#030303] flex">
+      {/* Fixed Background */}
+      <div className="fixed inset-0 bg-gradient-to-br from-cyan-500/[0.05] via-transparent to-fuchsia-500/[0.05] blur-3xl pointer-events-none" />
 
-      <div className="flex min-h-screen">
-        <aside className="w-72 border-r border-dark-800 bg-dark-900 px-5 py-6 hidden lg:flex lg:flex-col">
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="mb-6 inline-flex items-center gap-2 text-dark-200 hover:text-primary-500 transition-colors"
-          >
-            <IoArrowBack size={16} />
-            Back
-          </button>
+      {/* Sidebar */}
+      <div className="w-72 border-r border-white/[0.1] bg-gradient-to-b from-white/[0.05] to-transparent backdrop-blur-xl p-6 flex flex-col sticky top-0 h-screen overflow-y-auto">
+        {/* Back Button */}
+        <motion.button
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+          onClick={() => router.push('/dashboard')}
+          className="mb-8 flex items-center gap-2 text-white/70 hover:text-white transition-colors duration-300"
+        >
+          <ArrowLeft size={18} />
+          <span className="font-medium">Back</span>
+        </motion.button>
 
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="mb-8 h-12 rounded-lg bg-primary-600 hover:bg-primary-700 text-dark-50 font-semibold transition-colors inline-flex items-center justify-center gap-2"
-          >
-            <IoCloudUpload size={18} />
-            Add files
-          </button>
+        {/* Upload Button */}
+        <motion.button
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          onClick={() => fileInputRef.current?.click()}
+          className={cn(
+            "w-full px-4 py-3 mb-6 rounded-lg bg-gradient-to-r from-cyan-500 via-purple-500 to-fuchsia-500 text-white font-semibold transition-all duration-300",
+            "hover:from-cyan-600 hover:via-purple-600 hover:to-fuchsia-600 hover:shadow-lg hover:shadow-cyan-500/50 hover:-translate-y-0.5",
+            "flex items-center justify-center gap-2"
+          )}
+        >
+          <Cloud size={18} />
+          Add Files
+        </motion.button>
 
-          <div className="space-y-2 text-sm text-dark-300">
-            <div className="rounded-lg bg-dark-850 px-4 py-3">Players</div>
-            <div className="rounded-lg px-4 py-3 hover:bg-dark-850 transition-colors">Players shared with me</div>
-            <div className="rounded-lg px-4 py-3 hover:bg-dark-850 transition-colors">Folders</div>
-            <div className="rounded-lg px-4 py-3 hover:bg-dark-850 transition-colors">Archives</div>
-            <div className="rounded-lg px-4 py-3 hover:bg-dark-850 transition-colors">Trash</div>
+        {/* Share Button */}
+        <motion.button
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.15 }}
+          onClick={handleShareContainer}
+          className={cn(
+            "w-full px-4 py-3 mb-8 rounded-lg border border-white/[0.2] hover:border-white/[0.3] text-white font-semibold transition-all duration-300",
+            "hover:bg-white/[0.05]",
+            "flex items-center justify-center gap-2"
+          )}
+        >
+          <Share2 size={18} />
+          Share
+        </motion.button>
+
+        {/* Container Info */}
+        <div className="flex-1">
+          <p className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-4">
+            Container Info
+          </p>
+          <div className="p-4 rounded-lg bg-white/[0.05] border border-white/[0.1]">
+            <h3 className="text-sm font-bold text-white mb-2 line-clamp-2">
+              {container.name}
+            </h3>
+            <p className="text-xs text-white/50 line-clamp-3">
+              {container.description || 'No description'}
+            </p>
+            <p className="text-xs text-white/40 mt-3">
+              {files.length} file{files.length !== 1 ? 's' : ''}
+            </p>
           </div>
+        </div>
 
-          <div className="mt-auto pt-8">
-            <p className="text-xs font-semibold tracking-wider text-dark-500 mb-3">STORAGE</p>
-            <div className="h-2 w-full rounded-full bg-dark-800 overflow-hidden">
-              <div className="h-full w-1/3 bg-primary-500" />
-            </div>
-            <p className="mt-3 text-xs text-dark-400">{(files.reduce((sum, f) => sum + f.file_size, 0) / 1024 / 1024).toFixed(1)} MB used</p>
+        {/* Storage */}
+        <div className="pt-6 border-t border-white/[0.1]">
+          <p className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-3">
+            Storage
+          </p>
+          <p className="text-sm text-white mb-3">
+            {(files.reduce((sum, f) => sum + f.file_size, 0) / 1024 / 1024).toFixed(1)} MB
+          </p>
+          <div className="w-full h-2 rounded-full bg-white/[0.1] overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-indigo-500 to-rose-500 rounded-full transition-all duration-500"
+              style={{ width: files.length > 0 ? '30%' : '0%' }}
+            />
           </div>
-        </aside>
-
-        <main className="flex-1 min-w-0">
-          <header className="h-16 border-b border-dark-800 bg-dark-900/80 backdrop-blur px-4 lg:px-8 flex items-center justify-between">
-            <div className="w-full max-w-xl relative">
-              <IoSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-dark-500" size={16} />
-              <input
-                placeholder="Search"
-                className="w-full h-10 rounded-md bg-dark-850 border border-dark-800 pl-10 pr-4 text-sm text-dark-100 placeholder-dark-500 outline-none focus:border-primary-600"
-              />
-            </div>
-            <div className="ml-4 text-sm text-dark-200 hidden sm:block">{user.email}</div>
-          </header>
-
-          <div className="p-4 lg:p-8">
-            <section className="flex flex-col lg:flex-row gap-6 lg:items-center mb-8">
-              <div className="h-48 w-48 rounded-xl bg-dark-850 border border-dark-800 flex items-center justify-center">
-                <IoMusicalNote size={64} className="text-primary-500" />
-              </div>
-              <div>
-                <h1 className="text-4xl font-bold text-dark-50">{container.name}</h1>
-                <p className="text-dark-400 mt-2">{container.description || 'No description'}</p>
-                <p className="text-sm text-primary-500 mt-3">{files.length} tracks</p>
-              </div>
-            </section>
-
-            <section className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="h-11 rounded-lg bg-primary-600 hover:bg-primary-700 text-dark-50 font-semibold transition-colors"
-              >
-                Add files
-              </button>
-              <button className="h-11 rounded-lg bg-dark-850 border border-dark-800 text-dark-200">Paywall</button>
-              <button className="h-11 rounded-lg bg-dark-850 border border-dark-800 text-dark-200">Share</button>
-              <button className="h-11 rounded-lg bg-dark-850 border border-dark-800 text-dark-200">Download</button>
-              <button className="h-11 rounded-lg bg-dark-850 border border-dark-800 text-dark-200 inline-flex items-center justify-center gap-2">
-                Plus <IoChevronDown size={14} />
-              </button>
-            </section>
-
-            {uploading && (
-              <div className="mb-4 p-3 bg-primary-900/30 border border-primary-500 rounded-lg text-primary-50 text-sm">
-                Caricamento in corso...
-              </div>
-            )}
-
-            {files.length === 0 ? (
-              <div className={`rounded-xl border border-dashed p-10 text-center ${dragActive ? 'border-primary-500 bg-primary-900/10' : 'border-dark-700 bg-dark-900/40'}`}>
-                <IoCloudUpload size={28} className="mx-auto mb-3 text-primary-500" />
-                <p className="text-dark-200">Trascina qui i file audio oppure usa Add files</p>
-              </div>
-            ) : (
-              <section className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] border-t border-dark-800">
-                <div className="divide-y divide-dark-800/80">
-                  {files.map((file) => {
-                    const isPlaying = playingFile?.id === file.id;
-                    return (
-                      <div key={file.id} className={`h-18 px-3 lg:px-4 py-3 flex items-center gap-3 hover:bg-dark-900/60 transition-colors ${isPlaying ? 'bg-dark-900/70' : ''}`}>
-                        <button
-                          onClick={() => setPlayingFile(file)}
-                          className="h-9 w-9 rounded-full border border-dark-700 text-dark-200 hover:text-primary-400 hover:border-primary-500 inline-flex items-center justify-center"
-                        >
-                          <IoPlaySharp size={16} />
-                        </button>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-dark-100">{file.file_name}</p>
-                          <p className="text-xs text-dark-500 mt-1">
-                            {formatDuration(file.duration)} · {file.sample_rate ? `${Math.round(file.sample_rate / 1000)}kHz` : '--'} · {file.bitrate ? `${Math.round(file.bitrate / 1000)}kbps` : '--'}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => handleShare(file.id)}
-                          className="h-8 w-8 rounded bg-dark-850 border border-dark-800 text-dark-300 hover:text-primary-400"
-                          title="Condividi"
-                        >
-                          <IoShare size={14} className="mx-auto" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteFile(file.id, file.file_name)}
-                          className="h-8 w-8 rounded bg-dark-850 border border-dark-800 text-dark-300 hover:text-red-400"
-                          title="Elimina"
-                        >
-                          <IoTrash size={14} className="mx-auto" />
-                        </button>
-                        <button className="h-8 w-8 rounded bg-dark-850 border border-dark-800 text-dark-300 hover:text-dark-100" title="Menu">
-                          <IoEllipsisVertical size={14} className="mx-auto" />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="border-l border-dark-800 p-6 bg-dark-900/20">
-                  <button className="w-full h-11 rounded-lg bg-primary-600 hover:bg-primary-700 text-dark-50 font-semibold transition-colors">
-                    Start a collaboration
-                  </button>
-                  <div className="mt-6 rounded-lg border border-dark-800 bg-dark-900 p-4 min-h-56">
-                    <p className="text-sm text-dark-400">Collaboration feed</p>
-                    <p className="text-xs text-dark-500 mt-2">I commenti appariranno qui.</p>
-                  </div>
-                </div>
-              </section>
-            )}
-          </div>
-        </main>
+        </div>
       </div>
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-auto relative z-10">
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="audio/*"
+          onChange={handleFileUpload}
+          disabled={uploading}
+          className="hidden"
+        />
+
+        <div
+          className="p-8 md:p-12"
+          onDragEnter={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setDragCounter((prev) => prev + 1);
+            setDragActive(true);
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setDragCounter((prev) => {
+              const next = prev - 1;
+              if (next <= 0) setDragActive(false);
+              return Math.max(0, next);
+            });
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setDragActive(false);
+            setDragCounter(0);
+            handleFileUpload(e);
+          }}
+        >
+          {/* Header */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="mb-8 flex items-center justify-between"
+          >
+            <div>
+              <h1 className="text-4xl md:text-5xl font-bold mb-3">
+                <span className="bg-clip-text text-transparent bg-gradient-to-b from-white to-white/80">
+                  {container.name}
+                </span>
+              </h1>
+              <p className="text-white/60">{container.description || 'No description'}</p>
+            </div>
+            <motion.button
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              onClick={() => setIsEditModalOpen(true)}
+              className="p-3 rounded-lg hover:bg-white/[0.1] text-cyan-400 hover:text-cyan-300 transition-all duration-300"
+              title="Edit container"
+            >
+              <Edit2 size={24} />
+            </motion.button>
+          </motion.div>
+
+          {/* Upload Area or Files Grid */}
+          {files.length === 0 && !uploading ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              onClick={() => fileInputRef.current?.click()}
+              className={cn(
+                "rounded-xl border-2 border-dashed p-12 text-center cursor-pointer transition-all duration-300",
+                dragActive
+                  ? 'border-cyan-500 bg-cyan-500/[0.1]'
+                  : 'border-white/[0.2] bg-white/[0.05] hover:bg-white/[0.1] hover:border-white/[0.3]'
+              )}
+            >
+              <Cloud size={48} className="mx-auto mb-4 text-white/60" />
+              <p className="text-lg font-semibold text-white mb-2">Drop your audio files here</p>
+              <p className="text-sm text-white/60">or click to browse</p>
+            </motion.div>
+          ) : (
+            <div className="space-y-4">
+              {/* Files List */}
+              <div className="space-y-2">
+                {files.map((file, i) => {
+                  const isPlaying = playingFile?.id === file.id;
+                  return (
+                    <motion.div
+                      key={file.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: i * 0.05 }}
+                      className={cn(
+                        "flex items-center gap-4 p-4 rounded-lg border transition-all duration-300",
+                        isPlaying
+                          ? 'bg-cyan-500/[0.2] border-cyan-500/50'
+                          : 'bg-white/[0.05] border-white/[0.1] hover:bg-white/[0.08] hover:border-white/[0.2]'
+                      )}
+                    >
+                      {/* Play Button */}
+                      <button
+                        onClick={() => setPlayingFile(file)}
+                        className={cn(
+                          "flex-shrink-0 p-2 rounded-lg transition-all duration-300",
+                          isPlaying
+                            ? 'bg-cyan-500 text-white'
+                            : 'bg-white/[0.1] text-white hover:bg-cyan-500 hover:text-white'
+                        )}
+                      >
+                        <Play size={18} />
+                      </button>
+
+                      {/* File Info */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-white truncate">{file.file_name}</p>
+                        <p className="text-xs text-white/50 mt-1">
+                          {formatDuration(file.duration)} · {file.sample_rate ? `${Math.round(file.sample_rate / 1000)}kHz` : '--'} · {file.bitrate ? `${Math.round(file.bitrate / 1000)}kbps` : '--'}
+                        </p>
+                      </div>
+
+                      {/* Actions */}
+                      <button
+                        onClick={() => handleShare(file.id)}
+                        className="flex-shrink-0 p-2 rounded-lg bg-white/[0.1] hover:bg-cyan-500/20 text-white/60 hover:text-cyan-400 transition-all duration-300"
+                        title="Share"
+                      >
+                        <Share2 size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteFile(file.id, file.file_name)}
+                        className="flex-shrink-0 p-2 rounded-lg bg-white/[0.1] hover:bg-rose-500/20 text-white/60 hover:text-rose-400 transition-all duration-300"
+                        title="Delete"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </motion.div>
+                  );
+                })}
+              </div>
+
+              {/* Upload More */}
+              <motion.button
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: files.length * 0.05 }}
+                onClick={() => fileInputRef.current?.click()}
+                className={cn(
+                  "w-full px-4 py-3 rounded-lg border border-dashed border-white/[0.2] text-white font-medium transition-all duration-300",
+                  "hover:border-white/[0.3] hover:bg-white/[0.05]",
+                  "flex items-center justify-center gap-2 mt-4"
+                )}
+              >
+                <Plus size={18} />
+                Upload More Files
+              </motion.button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Edit Container Modal */}
+      {container && (
+        <ContainerModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onSubmit={handleUpdateContainer}
+          initialName={container.name}
+          initialDescription={container.description || ''}
+          title="Edit Container"
+          submitText="Update"
+        />
+      )}
 
       {/* Floating Player */}
       {playingFile && (

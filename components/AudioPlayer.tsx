@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import WaveSurfer from 'wavesurfer.js';
-import { FiPlay, FiPause, FiVolume2, FiX } from 'react-icons/fi';
+import { Play, Pause, Volume2, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface AudioPlayerProps {
   src: string;
@@ -27,7 +28,6 @@ export default function AudioPlayer({
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Initialize WaveSurfer
     const waveSurfer = WaveSurfer.create({
       container: containerRef.current,
       url: src,
@@ -35,14 +35,13 @@ export default function AudioPlayer({
       barWidth: 2,
       barGap: 1,
       barRadius: 2,
-      waveColor: '#0ea5e9',
-      progressColor: '#0284c7',
-      cursorColor: '#0ea5e9',
+      waveColor: 'rgba(6, 182, 212, 0.3)',
+      progressColor: 'rgb(6, 182, 212)',
+      cursorColor: 'rgb(6, 182, 212)',
     });
 
     waveSurferRef.current = waveSurfer;
 
-    // Event listeners
     const handleReady = () => {
       setDuration(waveSurfer.getDuration());
     };
@@ -80,20 +79,20 @@ export default function AudioPlayer({
   };
 
   return (
-    <div className="bg-dark-900 border-t border-dark-800 p-4">
+    <div className="border-t border-white/10 p-4 bg-white/[0.02] backdrop-blur-md">
       <div className="max-w-7xl mx-auto">
         {/* Track Info */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex-1 min-w-0">
-            <p className="text-dark-50 font-semibold truncate">{title}</p>
-            <p className="text-dark-400 text-sm truncate">{artist}</p>
+            <p className="text-white font-semibold truncate">{title}</p>
+            <p className="text-white/60 text-sm truncate">{artist}</p>
           </div>
           {onClose && (
             <button
               onClick={onClose}
-              className="ml-4 p-2 text-dark-400 hover:text-dark-50 transition-colors"
+              className="ml-4 p-2 text-white/60 hover:text-white transition-colors"
             >
-              <FiX size={20} />
+              <X size={20} />
             </button>
           )}
         </div>
@@ -101,7 +100,7 @@ export default function AudioPlayer({
         {/* Waveform */}
         <div
           ref={containerRef}
-          className="mb-3 rounded-lg overflow-hidden bg-dark-800"
+          className="mb-3 rounded-xl overflow-hidden bg-white/[0.03] border border-white/10"
         />
 
         {/* Controls */}
@@ -109,25 +108,29 @@ export default function AudioPlayer({
           {/* Play Button */}
           <button
             onClick={handlePlayPause}
-            className="flex-shrink-0 w-10 h-10 rounded-full bg-primary-600 hover:bg-primary-700 flex items-center justify-center text-dark-950 transition-colors"
+            className={cn(
+              "flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 via-purple-500 to-fuchsia-500 flex items-center justify-center text-white transition-all duration-300 font-bold shadow-lg",
+              "hover:from-cyan-600 hover:via-purple-600 hover:to-fuchsia-600 hover:shadow-lg hover:shadow-cyan-500/50 hover:-translate-y-0.5",
+              "active:scale-95"
+            )}
           >
             {isPlaying ? (
-              <FiPause size={20} fill="currentColor" />
+              <Pause size={18} fill="currentColor" />
             ) : (
-              <FiPlay size={20} className="ml-0.5" fill="currentColor" />
+              <Play size={18} className="ml-0.5" fill="currentColor" />
             )}
           </button>
 
           {/* Time Display */}
-          <div className="text-xs text-dark-400 font-mono flex-shrink-0">
+          <div className="text-xs text-white/60 font-mono flex-shrink-0">
             <span>{formatTime(currentTime)}</span>
-            <span className="text-dark-600"> / </span>
+            <span className="text-white/40"> / </span>
             <span>{formatTime(duration)}</span>
           </div>
 
           {/* Volume Control */}
           <div className="ml-auto flex items-center gap-2">
-            <FiVolume2 size={18} className="text-dark-400" />
+            <Volume2 size={18} className="text-white/60" />
             <input
               type="range"
               min="0"
@@ -135,7 +138,7 @@ export default function AudioPlayer({
               step="0.01"
               value={volume}
               onChange={handleVolumeChange}
-              className="w-24 h-1 bg-dark-700 rounded-lg appearance-none cursor-pointer accent-primary-500"
+              className="w-24 h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-cyan-500 transition-all"
             />
           </div>
         </div>

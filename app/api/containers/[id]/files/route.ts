@@ -42,6 +42,9 @@ export async function POST(
     if (formData.has('sample_rate')) metadata.sample_rate = parseInt(formData.get('sample_rate') as string);
     if (formData.has('bitrate')) metadata.bitrate = parseInt(formData.get('bitrate') as string);
     if (formData.has('lufs')) metadata.lufs = parseFloat(formData.get('lufs') as string);
+    if (formData.has('true_peak')) metadata.true_peak = parseFloat(formData.get('true_peak') as string);
+    if (formData.has('loudness_range')) metadata.loudness_range = parseFloat(formData.get('loudness_range') as string);
+    if (formData.has('format')) metadata.format = formData.get('format') as string;
 
     console.log('[API Upload File] 📝 Metadata:', metadata);
 

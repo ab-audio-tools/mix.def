@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { IoMusicalNote, IoLockClosed } from 'react-icons/io5';
-import FloatingAudioPlayer from '@/components/FloatingAudioPlayer';
+import { Music, Lock, Play, Download } from 'lucide-react';
+import FloatingPlayer from '@/components/FloatingPlayer';
 
 interface SharedFile {
   id: string;
@@ -72,6 +72,36 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
     }
   }
 
+  const getPublicAudioUrl = (path: string) => {
+    // New uploads are stored locally as /uploads/... and are already publicly reachable.
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path;
+    }
+
+    if (path.startsWith('/')) {
+      return path;
+    }
+
+    // Fallback for legacy storage paths saved without a leading slash.
+    if (path.startsWith('uploads/')) {
+      return `/${path}`;
+    }
+
+    // Legacy fallback for old Supabase object keys.
+    return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/audio-files/${path}`;
+  };
+
+  const handleDownload = (path: string, fileName: string) => {
+    const url = getPublicAudioUrl(path);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-dark-950 flex items-center justify-center">
@@ -84,7 +114,7 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
     return (
       <div className="min-h-screen bg-dark-950 flex items-center justify-center">
         <div className="text-center">
-          <IoLockClosed size={48} className="mx-auto mb-4 text-dark-700" />
+          <Lock size={48} className="mx-auto mb-4 text-dark-700" />
           <p className="text-dark-50 font-semibold mb-2">Accesso non autorizzato</p>
           <p className="text-dark-400">{error}</p>
         </div>
@@ -101,11 +131,16 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
   }
 
   return (
-    <div className="min-h-screen bg-dark-950 p-6">
-      <div className="max-w-3xl mx-auto">
+    <div className="min-h-screen bg-dark-950 p-6 pb-40">
+      <div className="pointer-events-none fixed inset-0 opacity-30">
+        <div className="absolute -top-24 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-primary-500/20 blur-3xl" />
+        <div className="absolute bottom-0 right-0 h-80 w-80 rounded-full bg-accent-500/10 blur-3xl" />
+      </div>
+
+      <div className="relative max-w-5xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-dark-50 mb-2">Contenuto Condiviso</h1>
+        <div className="text-center mb-12 pt-6">
+          <h1 className="text-4xl md:text-5xl font-bold text-dark-50 mb-3">Contenuto Condiviso</h1>
           <p className="text-dark-400">
             Visualizza e ascolta i file audio condivisi
           </p>
@@ -113,11 +148,20 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
 
         {/* File Share */}
         {file && (
-          <div className="bg-dark-900 border border-dark-800 rounded-lg p-6 text-center mb-8">
-            <IoMusicalNote size={48} className="mx-auto mb-4 text-primary-500" />
-            <h2 className="text-2xl font-bold text-dark-50 mb-2">{file.file_name}</h2>
+          <div className="bg-dark-900/90 border border-dark-800 rounded-2xl p-6 md:p-8 mb-10 shadow-2xl shadow-black/40">
+            <div className="flex flex-col md:flex-row gap-6 md:items-center">
+              <div className="h-24 w-24 rounded-xl bg-dark-850 border border-dark-700 flex items-center justify-center">
+                <Music size={38} className="text-primary-500" />
+              </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 my-6 p-4 bg-dark-800 rounded-lg">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs uppercase tracking-[0.2em] text-primary-400 mb-2">Single Track</p>
+                <h2 className="text-2xl md:text-3xl font-bold text-dark-50 truncate">{file.file_name}</h2>
+                <p className="text-sm text-dark-400 mt-2">Ascolto privato via link condiviso</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 my-6 p-4 bg-dark-850 border border-dark-800 rounded-xl">
               {file.duration && (
                 <div>
                   <p className="text-dark-500 text-sm">Durata</p>
@@ -175,22 +219,34 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
               )}
             </div>
 
-            <button
-              onClick={() => {
-                setSelectedFile(file);
-                setPlayerOpen(true);
-              }}
-              className="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-dark-50 rounded-lg transition-colors font-semibold"
-            >
-              Riproduci
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => handleDownload(file.file_path, file.file_name)}
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-dark-800 hover:bg-dark-700 text-dark-50 rounded-lg transition-colors font-semibold"
+              >
+                <Download size={18} />
+                Download
+              </button>
+
+              <button
+                onClick={() => {
+                  setSelectedFile(file);
+                  setPlayerOpen(true);
+                }}
+                className="h-12 w-12 inline-flex items-center justify-center rounded-lg bg-primary-600 hover:bg-primary-700 text-dark-50 transition-colors"
+                aria-label="Play track"
+                title="Play"
+              >
+                <Play size={18} />
+              </button>
+            </div>
           </div>
         )}
 
         {/* Container Share */}
         {container && (
-          <div>
-            <h2 className="text-2xl font-bold text-dark-50 mb-4">
+          <div className="rounded-2xl border border-dark-800 bg-dark-900/80 p-6 md:p-8">
+            <h2 className="text-2xl md:text-3xl font-bold text-dark-50 mb-2">
               {container.name}
             </h2>
             {container.description && (
@@ -198,29 +254,40 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
             )}
 
             {container.files && container.files.length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {container.files.map((f) => (
                   <div
                     key={f.id}
-                    className="bg-dark-900 border border-dark-800 rounded-lg p-4 flex items-center justify-between hover:border-dark-700 transition-colors"
+                    className="bg-dark-850 border border-dark-800 rounded-xl p-4 md:p-5 flex items-center justify-between gap-4 hover:border-primary-700/60 transition-colors"
                   >
-                    <div>
-                      <p className="text-dark-50 font-semibold">{f.file_name}</p>
-                      <p className="text-xs text-dark-500 mt-1">
-                        {(f.file_size / 1024 / 1024).toFixed(2)} MB •{' '}
-                        {f.format?.toUpperCase()}
+                    <div className="min-w-0">
+                      <p className="text-dark-50 font-semibold truncate">{f.file_name}</p>
+                      <p className="text-xs text-dark-500 mt-1 truncate">
+                        {(f.file_size / 1024 / 1024).toFixed(2)} MB • {f.format?.toUpperCase() || 'AUDIO'} • {f.sample_rate ? `${(f.sample_rate / 1000).toFixed(1)}kHz` : 'n/a'}
                       </p>
                     </div>
 
-                    <button
-                      onClick={() => {
-                        setSelectedFile(f);
-                        setPlayerOpen(true);
-                      }}
-                      className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-dark-50 rounded-lg transition-colors text-sm font-semibold"
-                    >
-                      Riproduci
-                    </button>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => handleDownload(f.file_path, f.file_name)}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-dark-800 hover:bg-dark-700 text-dark-50 rounded-lg transition-colors text-sm font-semibold"
+                      >
+                        <Download size={16} />
+                        Download
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setSelectedFile(f);
+                          setPlayerOpen(true);
+                        }}
+                        className="h-10 w-10 inline-flex items-center justify-center rounded-lg bg-primary-600 hover:bg-primary-700 text-dark-50 transition-colors"
+                        aria-label={`Play ${f.file_name}`}
+                        title="Play"
+                      >
+                        <Play size={16} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -235,16 +302,10 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
 
       {/* Floating Player */}
       {playerOpen && selectedFile && (
-        <FloatingAudioPlayer
-          fileId={selectedFile.id}
-          fileName={selectedFile.file_name}
-          fileUrl={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/audio-files/${selectedFile.file_path}`}
-          metadata={{
-            duration: selectedFile.duration,
-            sample_rate: selectedFile.sample_rate,
-            bitrate: selectedFile.bitrate,
-            lufs: selectedFile.lufs,
-            format: selectedFile.format,
+        <FloatingPlayer
+          file={{
+            ...selectedFile,
+            file_path: getPublicAudioUrl(selectedFile.file_path),
           }}
           onClose={() => setPlayerOpen(false)}
         />

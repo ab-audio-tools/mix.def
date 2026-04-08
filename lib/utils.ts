@@ -1,3 +1,12 @@
+import clsx, { type ClassValue } from 'clsx';
+
+/**
+ * Merge and combine Tailwind CSS class names
+ */
+export function cn(...inputs: ClassValue[]): string {
+  return clsx(inputs);
+}
+
 /**
  * Format file size to human-readable format
  */

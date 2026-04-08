@@ -39,3 +39,13 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 mix_def/
+
+# Audio files (large user uploads)
+*.mp3
+*.wav
+*.m4a
+*.aac
+*.flac
+*.ogg
+public/uploads/*
+!public/uploads/.gitkeep

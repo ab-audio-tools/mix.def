@@ -75,6 +75,19 @@ export default function TrackPage() {
     }
   };
 
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast.success('Track link copied!');
+    } catch (error) {
+      toast.error('Failed to copy track link');
+    }
+  };
+
+  const scrollToComments = () => {
+    document.getElementById('comments')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -238,11 +251,11 @@ export default function TrackPage() {
                   />
                   Like
                 </button>
-                <button className="inline-flex items-center gap-2 px-4 py-2 bg-dark-800 hover:bg-dark-700 text-dark-300 hover:text-dark-50 rounded-lg transition-colors font-semibold">
+                <button onClick={scrollToComments} className="inline-flex items-center gap-2 px-4 py-2 bg-dark-800 hover:bg-dark-700 text-dark-300 hover:text-dark-50 rounded-lg transition-colors font-semibold">
                   <FiMessageSquare size={18} />
                   Comment
                 </button>
-                <button className="inline-flex items-center gap-2 px-4 py-2 bg-dark-800 hover:bg-dark-700 text-dark-300 hover:text-dark-50 rounded-lg transition-colors font-semibold">
+                <button onClick={handleShare} className="inline-flex items-center gap-2 px-4 py-2 bg-dark-800 hover:bg-dark-700 text-dark-300 hover:text-dark-50 rounded-lg transition-colors font-semibold">
                   <FiShare2 size={18} />
                   Share
                 </button>
@@ -260,7 +273,7 @@ export default function TrackPage() {
       />
 
       {/* Comments Section */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div id="comments" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <h2 className="text-2xl font-bold mb-8">Comments</h2>
 
         {/* Comment Form */}

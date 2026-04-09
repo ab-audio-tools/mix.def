@@ -9,6 +9,8 @@ interface RouteParams {
   id: string;
 }
 
+export const maxDuration = 300; // 5 minutes timeout for large file uploads
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<RouteParams> }

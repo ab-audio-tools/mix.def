@@ -56,14 +56,26 @@ export async function POST(
     // Save to local storage
     console.log('[DB Upload] 📤 Saving to local storage:', file.name, 'Size:', file.size);
     
-    const uploadDir = join(process.cwd(), 'public', 'uploads', resolvedParams.id);
-    await mkdir(uploadDir, { recursive: true });
-    
-    const filePath = join(uploadDir, `${timestamp}-${file.name}`);
-    const buffer = await file.arrayBuffer();
-    await writeFile(filePath, Buffer.from(buffer));
-    
-    console.log('[DB Upload] ✅ File saved to local storage');
+    try {
+      // Ensure upload directory exists with proper permissions
+      const uploadDir = join(process.cwd(), 'public', 'uploads', resolvedParams.id);
+      console.log('[DB Upload] 📁 Upload directory:', uploadDir);
+      
+      await mkdir(uploadDir, { recursive: true });
+      console.log('[DB Upload] ✓ Directory created/verified');
+      
+      const filePath = join(uploadDir, `${timestamp}-${file.name}`);
+      console.log('[DB Upload] 📝 File path:', filePath);
+      
+      const buffer = await file.arrayBuffer();
+      console.log('[DB Upload] 📦 Buffer size:', buffer.byteLength);
+      
+      await writeFile(filePath, Buffer.from(buffer));
+      console.log('[DB Upload] ✅ File saved successfully');
+    } catch (writeError) {
+      console.error('[DB Upload] ❌ Write error:', writeError);
+      throw writeError;
+    }
 
     // Generate public URL
     const publicUrl = `/uploads/${resolvedParams.id}/${timestamp}-${file.name}`;

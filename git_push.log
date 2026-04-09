@@ -1,0 +1,10 @@
+remote: warning: File .next/cache/webpack/client-production/0.pack is 91.56 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB        
+remote: warning: File .next/cache/webpack/client-production/0.pack is 78.49 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB        
+remote: warning: File .next/cache/webpack/server-production/0.pack is 90.48 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB        
+remote: error: Trace: f08845040fd06891e15f6c208e301a1c5399eb9dff1f2b2c275fc8e595d80d51        
+remote: error: See https://gh.io/lfs for more information.        
+remote: error: File .next/cache/webpack/server-production/0.pack is 106.76 MB; this exceeds GitHub's file size limit of 100.00 MB        
+remote: error: GH001: Large files detected. You may want to try Git Large File Storage - https://git-lfs.github.com.        
+To https://github.com/ab-audio-tools/mix.def.git
+ ! [remote rejected] main -> main (pre-receive hook declined)
+error: failed to push some refs to 'https://github.com/ab-audio-tools/mix.def.git'

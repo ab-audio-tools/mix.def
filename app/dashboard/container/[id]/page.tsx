@@ -89,18 +89,29 @@ export default function ContainerPage({ params }: { params: Promise<{ id: string
 
     let filesToUpload: FileList | null = null;
 
-    if (e.type === 'drop') {
-      const dragEvent = e as React.DragEvent<HTMLDivElement>;
-      filesToUpload = dragEvent.dataTransfer?.files || null;
-    } else if (e.type === 'change') {
-      const inputEvent = e as React.ChangeEvent<HTMLInputElement>;
-      filesToUpload = inputEvent.currentTarget?.files || null;
+    try {
+      if ('dataTransfer' in e) {
+        // Drag and drop event
+        const dragEvent = e as React.DragEvent<HTMLDivElement>;
+        filesToUpload = dragEvent.dataTransfer?.files || null;
+      } else if ('currentTarget' in e) {
+        // File input change event
+        const inputEvent = e as React.ChangeEvent<HTMLInputElement>;
+        filesToUpload = inputEvent.currentTarget?.files || null;
+      }
+
+      if (!filesToUpload || filesToUpload.length === 0) {
+        console.warn('[Upload] No files selected');
+        return;
+      }
+
+      console.log('[Upload] Selected files:', filesToUpload.length);
+      const resolvedParams = await params;
+      await uploadFiles(filesToUpload, resolvedParams.id);
+    } catch (error) {
+      console.error('[Upload] Error in handleFileUpload:', error);
+      toast.error('Error uploading files');
     }
-
-    if (!filesToUpload || filesToUpload.length === 0) return;
-
-    const resolvedParams = await params;
-    await uploadFiles(filesToUpload, resolvedParams.id);
   }
 
   async function uploadFiles(filesToUpload: FileList, containerId: string) {
